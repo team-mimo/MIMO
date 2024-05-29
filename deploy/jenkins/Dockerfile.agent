@@ -1,0 +1,35 @@
+FROM debian:stable
+USER root
+
+ENV TZ Asia/Seoul
+ENV GRADLE_USER_HOME /home/jenkins/.gradle
+
+RUN groupadd -g 998 docker
+RUN useradd jenkins
+RUN usermod -aG docker jenkins
+
+RUN mkdir /home/jenkins
+RUN chown jenkins:jenkins /home/jenkins
+
+RUN apt-get update
+RUN apt-get install -y apt-transport-https \
+                       ca-certificates \
+                       curl \
+                       gnupg2 \
+                       software-properties-common \
+                       vim \
+                       lsb-release \
+                       openssh-client \
+                       openjdk-17-jdk
+
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+RUN echo "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > etc/apt/sources.list.d/docker.list
+
+RUN apt-get update
+RUN apt-get install -y docker-ce \
+                       docker-ce-cli \
+                       containerd.io
+RUN apt-get clean && rm -rf '/var/lib/lists/*'
+
+RUN curl -sO https://k10a204.p.ssafy.io/jenkins/jnlpJars/agent.jar
+USER jenkins

@@ -1,0 +1,39 @@
+services:
+    dev:
+        build: .
+        image: mimo_dev_img
+        container_name: mimo_dev
+        networks:
+            - mimo
+        environment:
+            - "MYSQL_URL=${DEV_MYSQL_URL}"
+            - "MYSQL_USERNAME=${DEV_MYSQL_USERNAME}"
+            - "MYSQL_PASSWORD=${DEV_MYSQL_PASSWORD}"
+            - "JWT_SECRET_KEY=${JWT_SECRET_KEY_DEV}"
+    green:
+        build: .
+        image: mimo_green_img
+        container_name: mimo_green
+        networks:
+            - mimo
+        environment:
+            - "MYSQL_URL=${OPS_MYSQL_URL}"
+            - "MYSQL_USERNAME=${OPS_MYSQL_USERNAME}"
+            - "MYSQL_PASSWORD=${OPS_MYSQL_PASSWORD}"
+            - "JWT_SECRET_KEY=${JWT_SECRET_KEY_OPS}"
+    blue:
+        build: .
+        image: mimo_blue_img
+        container_name: mimo_blue
+        networks:
+            - mimo
+        environment:
+            - "MYSQL_URL=${OPS_MYSQL_URL}"
+            - "MYSQL_USERNAME=${OPS_MYSQL_USERNAME}"
+            - "MYSQL_PASSWORD=${OPS_MYSQL_PASSWORD}"
+            - "JWT_SECRET_KEY=${JWT_SECRET_KEY_OPS}"
+
+networks:
+    mimo:
+        name: mimo-network
+        external: true

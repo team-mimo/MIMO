@@ -1,0 +1,45 @@
+services:
+    master:
+        build:
+            context: .
+            dockerfile: Dockerfile.master
+        image: jenkins_master_img
+        container_name: jenkins_master
+        env_file:
+            - .env
+        volumes:
+            - master-vol:/var/jenkins_home
+        networks:
+            - network
+        environment:
+            - "JENKINS_OPTS=${JENKINS_MASTER_OPTS}"
+
+    agent:
+        build:
+            context: .
+            dockerfile: Dockerfile.agent
+        entrypoint: sh -c "java -jar agent.jar -url ${JENKINS_URL} -secret ${JENKINS_AGENT_SECRET} -name agent -workDir '/home/jenkins'"
+        image: jenkins_agent_img
+        container_name: jenkins_agent
+        env_file:
+            - .env
+        volumes:
+            - agent-vol:/var/jenkins_home
+            - /var/run/docker.sock:/var/run/docker.sock
+        networks:
+            - network
+
+networks:
+    network:
+        name: mimo-network
+        external: true
+
+volumes:
+    master-vol:
+        name: jenkins_master-volume
+        external: true
+
+    agent-vol:
+        name: jenkins_agent-volume
+        external: true
+

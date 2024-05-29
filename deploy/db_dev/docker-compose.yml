@@ -1,0 +1,24 @@
+services:
+    db_dev:
+        build: .
+        image: db_dev_img
+        container_name: db_dev
+        env_file:
+            - .env
+        ports:
+            - "${DATABASE_PORT_0}:3306"
+            - "${DATABASE_PORT_1}:33060"
+        volumes:
+            - volume:/var/lib/mysql
+        networks:
+            - network
+
+volumes:
+    volume:
+        name: db_dev-volume
+        external: true
+
+networks:
+    network:
+        name: mimo-network
+        external: true

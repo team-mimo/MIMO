@@ -1,0 +1,32 @@
+upstream socket_server {
+    server mimo_green:${SOCKET_PORT} ${GREEN_WEIGHT}; # Green
+    server mimo_blue:${SOCKET_PORT} ${BLUE_WEIGHT}; # Blue
+}
+
+# Dev
+server {
+    listen ${DEV_SOCKET_PORT};
+    proxy_pass mimo_dev:${SOCKET_PORT};
+
+    ssl_certificate /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/privkey.pem;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+}
+
+# Ops
+server {
+    listen ${OPS_SOCKET_PORT};
+    proxy_pass socket_server;
+
+    ssl_certificate /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/privkey.pem;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+}

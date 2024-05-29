@@ -1,0 +1,107 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_HUB_REPOSITORY = 'kimjunha/mimo'
+        DOCKER_HUB_CREDENTIALS = credentials('dockerhub')
+    }
+
+    stages {
+        stage ('Checkout Code') {
+            steps {
+                checkout scm
+                echo "Current branch is $BRANCH_NAME"
+                script {
+                    if (BRANCH_NAME.contains('develop')) {
+                        TARGET = 'dev'
+                    } else if (BRANCH_NAME.contains('release')) {
+                        TARGET = 'green'
+                    } else if (BRANCH_NAME.contains('master')) {
+                        TARGET = 'blue'
+                    }
+                }
+            }
+        }
+        stage ('Sign in Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
+                }
+            }
+        }
+        stage ('Build') {
+            steps {
+                dir('backend') {
+                    script {
+                        NEED_TO_TEST = false
+                        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                            echo "Building jar"
+                            sh "chmod +x gradlew"
+                            sh "./gradlew clean bootjar"
+                            echo "Deploying $TARGET"
+                            sh "docker compose down $TARGET && docker compose up $TARGET --build -d"
+                            sh "docker tag mimo_$TARGET:latest $DOCKER_HUB_REPOSITORY:$TARGET-latest"
+                            sh "docker push $DOCKER_HUB_REPOSITORY:$TARGET-latest"
+                            NEED_TO_TEST = true
+                        }
+                    }
+                }
+            }
+        }
+        stage ('Health Check') {
+            steps {
+                sleep 10
+                script {
+                    STABLE = false
+                    if (NEED_TO_TEST) {
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            TEST_URL = 'https://k10a204.p.ssafy.io/api/check/' + TARGET
+                            HTTP_RESPONSE = sh(script: "curl -s -o /dev/null -w '%{http_code}' $TEST_URL", returnStdout: true).trim()
+                            echo "Container status: $HTTP_RESPONSE"
+                            if (HTTP_RESPONSE < '400') {
+                                STABLE = true
+                                echo "Build stable"
+                                echo "Push latest stable image"
+                            } else {
+                                echo "Build unstable"
+                                echo "Rollback to previous stable image"
+                            }
+                        }
+                    } else {
+                        echo "No need to test"
+                    }
+                    sh "docker exec nginx nginx -s reload"
+                }
+            }
+        }
+        stage ('Rollback | Push') {
+            steps {
+                dir('backend') {
+                    script {
+                        if (!STABLE) {
+                            catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                                sh "docker tag mimo_$TARGET:latest mimo_$TARGET:last-failed"
+                                sh "docker pull $DOCKER_HUB_REPOSITORY:$TARGET-stable"
+                                sh "docker tag $DOCKER_HUB_REPOSITORY:$TARGET-stable mimo_$TARGET:latest"
+                                sh "docker compose down $TARGET && docker compose up $TARGET -d"
+                                echo "Rollback completed"
+                            }
+                        } else {
+                            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                                sh "docker tag mimo_$TARGET:latest $DOCKER_HUB_REPOSITORY:$TARGET-stable"
+                                sh "docker push $DOCKER_HUB_REPOSITORY:$TARGET-stable"
+                                echo "Push completed"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            echo "Build completed"
+            sh "docker image prune -f"
+        }
+    }
+}

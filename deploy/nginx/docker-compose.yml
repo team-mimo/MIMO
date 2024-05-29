@@ -1,0 +1,35 @@
+services:
+    nginx:
+        build: .
+        image: nginx_img
+        container_name: nginx
+        env_file:
+            - .env
+        volumes:
+            - "${SSL_CERT_PATH}:/etc/nginx/ssl/fullchain.pem"
+            - "${SSL_KEY_PATH}:/etc/nginx/ssl/privkey.pem"
+            - "./http.conf:/etc/nginx/conf.d/http.conf"
+            - "./stream.conf:/etc/nginx/conf.d/stream.conf"
+            - "./nginx.conf:/etc/nginx/nginx.conf"
+            - "${HTML_DIR}:/usr/share/nginx/html"
+        ports:
+            - "80:80"
+            - "443:443"
+            - "${DEV_SOCKET_PORT}:${DEV_SOCKET_PORT}"
+            - "${OPS_SOCKET_PORT}:${OPS_SOCKET_PORT}"
+        networks:
+            - mimo
+            - dev
+            - ops
+
+networks:
+    mimo:
+        name: mimo-network
+        external: true
+    dev:
+        name: mimo_dev-network
+        external: true
+    ops:
+        name: mimo_ops-network
+        external: true
+
